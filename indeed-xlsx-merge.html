@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INDEED XLSX MERGER</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="favicon.ico"> <!-- Favicon link -->
+    <style>
+      body {
+          background-color: #0e1531; /* theme blue */
+          color: #ffffff;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded shadow-md text-center text-black flex flex-col justify-centers items-center">
+        <h1 class="p-6 font-bold">INDEED XLSXシート結合ツール</h1>
+        <input type="file" id="fileInput" class="mb-4" multiple>
+        <button id="mergeButton" class="bg-green-500 hover:bg-green-300 text-white px-4 py-2 rounded w-1/2">結合</button>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('mergeButton').onclick = mergeFiles;
+
+            function mergeFiles() {
+                const fileInput = document.getElementById('fileInput');
+                const files = Array.from(fileInput.files);
+
+                if (files.length === 0) {
+                    alert('せめて2個ファイルを選択してください。');
+                    return;
+                }
+
+                const mergedData = [];
+                let headers = null;
+                let allProcessed = 0;
+
+                files.forEach(file => {
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        if (json.length > 0) {
+                            if (headers === null && isHeaderRow(json[0])) {
+                                headers = json[0];
+                                mergedData.push(headers);
+                            }
+
+                            json.forEach((row, index) => {
+                                if (!(index === 0 && isHeaderRow(row))) {
+                                    mergedData.push(row);
+                                }
+                            });
+                        }
+
+                        allProcessed++;
+                        if (allProcessed === files.length) {
+                            const now = new Date();
+                            const year = now.getFullYear();
+                            let month = now.getMonth() + 1;
+                            if (month < 10) month = `0${month}`;
+                            let day = now.getDate();
+                            if (day < 10) day = `0${day}`;
+                            let hours = now.getHours();
+                            if (hours < 10) hours = `0${hours}`;
+                            let minutes = now.getMinutes();
+                            if (minutes < 10) minutes = `0${minutes}`;
+                            let seconds = now.getSeconds();
+                            if (seconds < 10) seconds = `0${seconds}`;
+                            const fileName = `merged_${year}${month}${day}-${hours}${minutes}${seconds}.xlsx`;                  
+                            downloadMergedFile(mergedData, fileName);
+                        }
+                    };
+
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            function isHeaderRow(row) {
+                return row.some(cell => typeof cell === 'string');
+            }
+
+            function downloadMergedFile(data, fileName) {
+                const worksheet = XLSX.utils.aoa_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+                XLSX.writeFile(workbook, fileName);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV CONVERTER</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        body {
+            background-color: #0e1531; /* theme blue */
+            color: #ffffff;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jschardet/2.1.1/jschardet.min.js"></script>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded shadow-md text-center text-black flex flex-col justify-centers items-center">
+        <h1 class="p-6 font-bold">CSVエンコード修正ツール</h1>
+        <input type="file" id="fileInput" class="mb-4">
+        <button id="processButton" class="bg-green-500 hover:bg-green-300 text-white px-4 py-2 rounded w-1/2">修正</button>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('processButton').onclick = processFile;
+
+            function processFile() {
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+
+                if (file) {
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        const fileContent = event.target.result;
+                        const detectedEncoding = detectEncoding(fileContent);
+
+                        if (detectedEncoding === 'UTF-8' && fileContent.charCodeAt(0) === 0xFEFF) {
+                            alert('すでに正しいファイル形式 (UTF-8)');
+                            return;
+                        }
+
+                        const utf8Content = convertToUTF8WithBOM(fileContent, detectedEncoding);
+                        const newFileName = getNewFileName(file.name);
+                        downloadFile(utf8Content, newFileName);
+                    };
+
+                    reader.readAsBinaryString(file);
+                } else {
+                    alert('まずファイルを選択してください。');
+                }
+            }
+
+            function detectEncoding(data) {
+                const result = jschardet.detect(data);
+                return result.encoding;
+            }
+
+            function convertToUTF8WithBOM(data, encoding) {
+                const decoder = new TextDecoder(encoding);
+                const decodedText = decoder.decode(new Uint8Array(data.split('').map(c => c.charCodeAt(0))));
+                const encoder = new TextEncoder();
+                const utf8Array = encoder.encode(decodedText);
+                const utf8WithBom = new Uint8Array([0xEF, 0xBB, 0xBF, ...utf8Array]);
+                return utf8WithBom;
+            }
+
+            function getNewFileName(originalName) {
+                const dotIndex = originalName.lastIndexOf('.');
+                const baseName = originalName.substring(0, dotIndex);
+                const extension = originalName.substring(dotIndex);
+                return `${baseName}-new${extension}`;
+            }
+
+            function downloadFile(content, fileName) {
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>
